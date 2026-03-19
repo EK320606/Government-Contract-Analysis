@@ -177,7 +177,6 @@
         .header-text p { font-size: 0.82rem; color: var(--text3); margin-top: 0.2rem; font-weight: 400; }
 
         .header-stats {
-            margin-left: auto;
             display: flex;
             gap: 1.75rem;
         }
@@ -425,6 +424,66 @@
         .renewal.unknown { background: rgba(100,116,139,0.1); color: var(--text3); border: 1px solid rgba(100,116,139,0.15); }
         @keyframes pulse-renewal { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
+        /* Treemap */
+        .treemap-cell {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 6px;
+            overflow: hidden;
+            transition: all 0.25s;
+            border: 1px solid rgba(0,0,0,0.3);
+            cursor: pointer;
+        }
+        .treemap-cell:hover {
+            z-index: 10;
+            transform: scale(1.02);
+            box-shadow: 0 0 25px rgba(255,255,255,0.15), inset 0 0 30px rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.4);
+        }
+        .treemap-cell .tm-name {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+            line-height: 1.2;
+            word-break: break-word;
+        }
+        .treemap-cell .tm-value {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.85);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            margin-top: 2px;
+        }
+        .treemap-cell .tm-count {
+            font-size: 0.58rem;
+            color: rgba(255,255,255,0.65);
+            margin-top: 1px;
+        }
+        .treemap-tooltip {
+            position: fixed;
+            background: rgba(10,15,30,0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+            color: var(--text);
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4), var(--glow);
+            max-width: 280px;
+        }
+        .treemap-tooltip .tt-name { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.35rem; color: #fff; }
+        .treemap-tooltip .tt-row { display: flex; justify-content: space-between; gap: 1rem; margin-top: 0.15rem; }
+        .treemap-tooltip .tt-label { color: var(--text3); }
+        .treemap-tooltip .tt-val { font-weight: 600; color: var(--green2); }
+
         .src-tag {
             font-size: 0.66rem;
             padding: 0.12rem 0.4rem;
@@ -542,6 +601,7 @@
             <h1>ECF, LLC Government Contract Analysis</h1>
             <p>Live procurement data cross-referenced with commercial pricing for undercut analysis and CMMC 2.0 proposals</p>
         </div>
+        <button class="btn btn-green" onclick="fetchAllData()" id="fetchBtnHeader" style="margin-left:auto;padding:0.6rem 1.5rem;font-size:0.9rem;">Fetch Live Data</button>
         <div class="header-stats">
             <div class="header-stat">
                 <div class="hs-val" id="hsContracts">--</div>
@@ -575,33 +635,28 @@
             </div>
             <div class="fg">
                 <label>Agency</label>
-                <select id="searchAgency">
-                    <option value="">All Agencies</option>
-                    <option value="Department of Defense">Dept. of Defense</option>
-                    <option value="Department of Health and Human Services">Health & Human Services</option>
-                    <option value="Department of Homeland Security">Homeland Security</option>
-                    <option value="National Aeronautics and Space Administration">NASA</option>
-                    <option value="Department of Energy">Dept. of Energy</option>
-                    <option value="General Services Administration">GSA</option>
-                    <option value="Department of Veterans Affairs">Veterans Affairs</option>
-                    <option value="Department of Transportation">Dept. of Transportation</option>
-                    <option value="Department of Justice">Dept. of Justice</option>
-                    <option value="Department of State">Dept. of State</option>
-                    <option value="Department of the Interior">Dept. of Interior</option>
-                    <option value="Department of Agriculture">Dept. of Agriculture</option>
-                    <option value="Department of Commerce">Dept. of Commerce</option>
-                    <option value="Department of Education">Dept. of Education</option>
-                    <option value="Department of the Treasury">Dept. of Treasury</option>
-                    <option value="Environmental Protection Agency">EPA</option>
-                    <option value="Social Security Administration">SSA</option>
-                    <option value="Small Business Administration">SBA</option>
-                    <option value="Nuclear Regulatory Commission">NRC</option>
-                    <option value="Agency for International Development">USAID</option>
+                <select id="searchAgency" onchange="applyAllFilters()">
+                    <option value="all">All Agencies</option>
+                </select>
+            </div>
+            <div class="fg">
+                <label>NAICS Category</label>
+                <select id="naicsFilter" onchange="applyAllFilters()">
+                    <option value="all">All Categories</option>
+                </select>
+            </div>
+            <div class="fg">
+                <label>Difficulty</label>
+                <select id="difficultyFilter" onchange="applyAllFilters()">
+                    <option value="all">All Levels</option>
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
                 </select>
             </div>
             <div class="fg">
                 <label>Upcoming Renewal</label>
-                <select id="renewalFilter" onchange="filterByRenewal()">
+                <select id="renewalFilter" onchange="applyAllFilters()">
                     <option value="all">All Contracts</option>
                     <option value="imminent">Imminent (0-90 days)</option>
                     <option value="soon">Soon (91-180 days)</option>
@@ -609,7 +664,7 @@
                     <option value="active">Active (1+ year)</option>
                 </select>
             </div>
-            <button class="btn btn-green" onclick="fetchAllData()" id="fetchBtn">Fetch Live Data</button>
+            <button class="btn" onclick="resetFilters()">Reset Filters</button>
         </div>
     </div>
 
@@ -663,7 +718,11 @@
 
     <!-- More Charts -->
     <div class="charts-row">
-        <div class="chart-box"><h3>Awards by Agency</h3><canvas id="chartAgency"></canvas></div>
+        <div class="chart-box">
+            <h3>Awards by Agency (click to filter)</h3>
+            <p class="chart-sub">All agencies ranked by total award value</p>
+            <canvas id="chartAgency" style="height:500px !important;"></canvas>
+        </div>
         <div class="chart-box"><h3>NAICS Category Breakdown</h3><canvas id="chartNaics"></canvas></div>
     </div>
 
@@ -1146,14 +1205,15 @@ function analyzeContract(c) {
 // ============================================================
 
 async function fetchAllData() {
-    const btn = document.getElementById("fetchBtn");
+    const btn = document.getElementById("fetchBtnHeader");
     btn.disabled = true;
     btn.textContent = "Fetching...";
     setStatus("yellow", "Fetching contracts and commercial pricing data...");
     pricingSources = { aws: false, azure: false, calc: false, fallback: true };
     updateSourceIndicators();
 
-    const agency = document.getElementById("searchAgency").value;
+    const agencyRaw = document.getElementById("searchAgency").value;
+    const agency = (agencyRaw === "all") ? "" : agencyRaw;
     const days = 365;
     const samKey = document.getElementById("samApiKey").value.trim();
     const endDate = new Date().toISOString().split("T")[0];
@@ -1400,6 +1460,7 @@ function updateDashboard() {
 
     updateSourceIndicators();
     updateAgencyDropdown();
+    updateNaicsDropdown();
 
     renderTable(allContracts);
     renderCharts();
@@ -1408,42 +1469,13 @@ function updateDashboard() {
 function updateAgencyDropdown() {
     const select = document.getElementById("searchAgency");
     const currentVal = select.value;
-    // Get unique agencies that have contracts
-    const activeAgencies = [...new Set(allContracts.map(c => c.agency))].sort();
-    // Map display names to API values
-    const agencyMap = {
-        "Dept. of Defense": "Department of Defense",
-        "Health and Human Services": "Department of Health and Human Services",
-        "Homeland Security": "Department of Homeland Security",
-        "NASA": "National Aeronautics and Space Administration",
-        "Dept. of Energy": "Department of Energy",
-        "General Services Administration": "General Services Administration",
-        "Dept. of Veterans Affairs": "Department of Veterans Affairs",
-        "Dept. of Transportation": "Department of Transportation",
-        "Dept. of Justice": "Department of Justice",
-        "Dept. of State": "Department of State",
-        "Dept. of Interior": "Department of the Interior",
-        "Dept. of Agriculture": "Department of Agriculture",
-        "Dept. of Commerce": "Department of Commerce",
-        "Dept. of Education": "Department of Education",
-        "Dept. of Treasury": "Department of the Treasury",
-        "EPA": "Environmental Protection Agency",
-        "SSA": "Social Security Administration",
-        "SBA": "Small Business Administration",
-        "NRC": "Nuclear Regulatory Commission",
-        "USAID": "Agency for International Development"
-    };
-    const reverseMap = {};
-    for (const [display, api] of Object.entries(agencyMap)) reverseMap[api] = display;
-
-    select.innerHTML = '<option value="">All Agencies</option>';
+    const activeAgencies = [...new Set(allContractsUnfiltered.map(c => c.agency))].sort();
+    select.innerHTML = '<option value="all">All Agencies</option>';
     activeAgencies.forEach(ag => {
-        const apiVal = agencyMap[ag] || ag;
-        const displayVal = ag;
         const opt = document.createElement("option");
-        opt.value = apiVal;
-        opt.textContent = displayVal;
-        if (apiVal === currentVal) opt.selected = true;
+        opt.value = ag;
+        opt.textContent = ag;
+        if (ag === currentVal) opt.selected = true;
         select.appendChild(opt);
     });
 }
@@ -1471,16 +1503,29 @@ function renderTable(data) {
 
 let allContractsUnfiltered = [];
 
-function filterByRenewal() {
-    const val = document.getElementById("renewalFilter").value;
-    if (val === "all") {
-        allContracts = [...allContractsUnfiltered];
-    } else {
-        allContracts = allContractsUnfiltered.filter(c => c.renewalStatus.toLowerCase() === val);
-    }
+function applyAllFilters(skipDropdownUpdate) {
+    const agencyVal = document.getElementById("searchAgency").value;
+    const naicsVal = document.getElementById("naicsFilter").value;
+    const diffVal = document.getElementById("difficultyFilter").value;
+    const renewalVal = document.getElementById("renewalFilter").value;
+
+    allContracts = allContractsUnfiltered.filter(c => {
+        if (agencyVal !== "all" && c.agency !== agencyVal) return false;
+        if (naicsVal !== "all") {
+            const catName = (NAICS_BASELINE[c.naics] || NAICS_BASELINE["default"]).name;
+            if (catName !== naicsVal) return false;
+        }
+        if (diffVal !== "all" && c.difficulty !== diffVal) return false;
+        if (renewalVal !== "all" && c.renewalStatus.toLowerCase() !== renewalVal) return false;
+        return true;
+    });
+
+    updateStats();
     renderTable(allContracts);
     renderCharts();
-    // Update stats for filtered view
+}
+
+function updateStats() {
     const n = allContracts.length;
     const obl = allContracts.reduce((s, c) => s + c.value, 0);
     const avgO = n > 0 ? allContracts.reduce((s, c) => s + c.pctOver, 0) / n : 0;
@@ -1494,6 +1539,38 @@ function filterByRenewal() {
     document.getElementById("hsContracts").textContent = n.toLocaleString();
     document.getElementById("hsValue").textContent = fmt(obl);
     document.getElementById("hsOpps").textContent = easy.toString();
+}
+
+function resetFilters() {
+    document.getElementById("searchAgency").value = "all";
+    document.getElementById("naicsFilter").value = "all";
+    document.getElementById("difficultyFilter").value = "all";
+    document.getElementById("renewalFilter").value = "all";
+    allContracts = [...allContractsUnfiltered];
+    updateStats();
+    renderTable(allContracts);
+    renderCharts();
+    closeDrilldown();
+}
+
+// Set a specific filter and re-apply (used by chart click handlers)
+function setFilter(filterId, value) {
+    document.getElementById(filterId).value = value;
+    applyAllFilters();
+}
+
+function updateNaicsDropdown() {
+    const select = document.getElementById("naicsFilter");
+    const currentVal = select.value;
+    const categories = [...new Set(allContractsUnfiltered.map(c => (NAICS_BASELINE[c.naics] || NAICS_BASELINE["default"]).name))].sort();
+    select.innerHTML = '<option value="all">All Categories</option>';
+    categories.forEach(cat => {
+        const opt = document.createElement("option");
+        opt.value = cat;
+        opt.textContent = cat;
+        if (cat === currentVal) opt.selected = true;
+        select.appendChild(opt);
+    });
 }
 
 function sortTable(col) {
@@ -1520,20 +1597,38 @@ function renderCharts() {
     Chart.defaults.plugins.tooltip.cornerRadius = 8;
     Chart.defaults.plugins.tooltip.titleFont = { weight: '600' };
 
-    const sorted = [...allContracts].sort((a, b) => b.pctOver - a.pctOver).slice(0, 50);
+    // 1. % Over COTS — clickable to show drilldown
+    const under50 = allContracts.filter(c => c.pctOver < 50).length;
+    const mid50to100 = allContracts.filter(c => c.pctOver >= 50 && c.pctOver < 100).length;
+    const over100 = allContracts.filter(c => c.pctOver >= 100).length;
+    const cotsLabels = ["< 50% Over", "50% - 99% Over", ">= 100% Over"];
     chartOverpriced = new Chart(document.getElementById("chartOverpriced"), {
         type: "bar",
         data: {
-            labels: sorted.map(c => c.id.substring(0, 16)),
-            datasets: [{ label: "% Over COTS", data: sorted.map(c => c.pctOver),
-                backgroundColor: sorted.map(c => c.pctOver >= 75 ? 'rgba(244,63,94,0.7)' : c.pctOver >= 25 ? 'rgba(245,158,11,0.7)' : 'rgba(16,185,129,0.7)'),
-                borderColor: sorted.map(c => c.pctOver >= 75 ? '#f43f5e' : c.pctOver >= 25 ? '#f59e0b' : '#10b981'),
-                borderWidth: 1, borderRadius: 4 }]
+            labels: cotsLabels,
+            datasets: [{
+                label: "Contracts",
+                data: [under50, mid50to100, over100],
+                backgroundColor: ['rgba(244,63,94,0.65)', 'rgba(245,158,11,0.65)', 'rgba(16,185,129,0.65)'],
+                borderColor: ['#f43f5e', '#f59e0b', '#10b981'],
+                borderWidth: 2, borderRadius: 6,
+                hoverBackgroundColor: ['rgba(244,63,94,0.9)', 'rgba(245,158,11,0.9)', 'rgba(16,185,129,0.9)']
+            }]
         },
-        options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { afterLabel: ctx => 'Source: ' + sorted[ctx.dataIndex].priceSource } } },
-            scales: { y: { ticks: { callback: v => v + "%" }, grid: { color: 'rgba(99,102,241,0.06)' } }, x: { ticks: { maxRotation: 45, font: { size: 8 } }, grid: { display: false } } } }
+        options: { responsive: true,
+            onClick: (e, els) => {
+                if (!els.length) return;
+                const idx = els[0].index;
+                const ranges = [[0,50],[50,100],[100,9999]];
+                const r = ranges[idx];
+                showDrilldown(`${cotsLabels[idx]}`, allContracts.filter(c => c.pctOver >= r[0] && c.pctOver < r[1]));
+            },
+            plugins: { legend: { display: false },
+                tooltip: { callbacks: { label: ctx => { const total = under50 + mid50to100 + over100; return ` ${ctx.parsed.y.toLocaleString()} contracts (${((ctx.parsed.y/total)*100).toFixed(1)}%) — click to drill down`; } } } },
+            scales: { y: { grid: { color: 'rgba(99,102,241,0.06)' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { weight: '700', size: 13 } } } } }
     });
 
+    // 2. Difficulty — clickable to filter
     const counts = { Easy: 0, Medium: 0, Hard: 0 };
     allContracts.forEach(c => counts[c.difficulty]++);
     chartDifficulty = new Chart(document.getElementById("chartDifficulty"), {
@@ -1545,33 +1640,87 @@ function renderCharts() {
             borderColor: ['#10b981','#f59e0b','#f43f5e'], borderWidth: 2, borderRadius: 6,
             hoverBackgroundColor: ['rgba(16,185,129,0.9)','rgba(245,158,11,0.9)','rgba(244,63,94,0.9)'] }] },
         options: { responsive: true,
-            onClick: (e, els) => { if (els.length) showDrilldown(["Easy","Medium","Hard"][els[0].index]); },
+            onClick: (e, els) => {
+                if (!els.length) return;
+                const diff = ["Easy","Medium","Hard"][els[0].index];
+                setFilter("difficultyFilter", diff);
+            },
             plugins: { legend: { display: false },
-                tooltip: { callbacks: { label: ctx => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); return ` ${ctx.parsed.y} contracts (${((ctx.parsed.y/total)*100).toFixed(0)}%) — click to drill down`; } } } },
+                tooltip: { callbacks: { label: ctx => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); return ` ${ctx.parsed.y.toLocaleString()} contracts (${((ctx.parsed.y/total)*100).toFixed(0)}%) — click to filter`; } } } },
             scales: { y: { grid: { color: 'rgba(99,102,241,0.06)' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { weight: '700', size: 13 } } } } }
     });
 
-    const agT = {}; allContracts.forEach(c => { agT[c.agency] = (agT[c.agency]||0) + c.value; });
-    const agS = Object.entries(agT).sort((a,b) => b[1]-a[1]).slice(0, 10);
+    // 3. Agency — horizontal bar chart with ALL agencies
+    const agT = {}; const agC = {};
+    allContracts.forEach(c => { agT[c.agency] = (agT[c.agency]||0) + c.value; agC[c.agency] = (agC[c.agency]||0) + 1; });
+    const agS = Object.entries(agT).sort((a,b) => b[1]-a[1]);
+    const agPalette = agS.map((_, i) => {
+        const hue = (i * 360 / agS.length + 220) % 360;
+        return `hsla(${hue}, 65%, 55%, 0.6)`;
+    });
+    const agBorders = agS.map((_, i) => {
+        const hue = (i * 360 / agS.length + 220) % 360;
+        return `hsl(${hue}, 65%, 55%)`;
+    });
     chartAgency = new Chart(document.getElementById("chartAgency"), {
         type: "bar",
-        data: { labels: agS.map(a => a[0].length > 28 ? a[0].substring(0,28)+"..." : a[0]),
-            datasets: [{ label: "Total Award", data: agS.map(a => a[1]),
-                backgroundColor: 'rgba(99,102,241,0.5)', borderColor: '#6366f1', borderWidth: 1, borderRadius: 4 }] },
-        options: { responsive: true, indexAxis: "y", plugins: { legend: { display: false } },
-            scales: { x: { ticks: { callback: v => fmt(v) }, grid: { color: 'rgba(99,102,241,0.06)' } }, y: { grid: { display: false } } } }
+        data: {
+            labels: agS.map(a => a[0]),
+            datasets: [{
+                label: "Total Award",
+                data: agS.map(a => a[1]),
+                backgroundColor: agPalette,
+                borderColor: agBorders,
+                borderWidth: 1,
+                borderRadius: 3,
+                hoverBackgroundColor: agBorders
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: "y",
+            onClick: (e, els) => {
+                if (!els.length) return;
+                setFilter("searchAgency", agS[els[0].index][0]);
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const ag = agS[ctx.dataIndex];
+                            return ` ${fmt(ag[1])} (${agC[ag[0]]} contracts) — click to filter`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { callback: v => fmt(v), color: '#94a3b8' }, grid: { color: 'rgba(99,102,241,0.06)' } },
+                y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+            }
+        }
     });
 
+    // 4. NAICS — clickable to filter
     const nT = {}; allContracts.forEach(c => { const n = (NAICS_BASELINE[c.naics]||NAICS_BASELINE["default"]).name; nT[n] = (nT[n]||0)+1; });
     const nS = Object.entries(nT).sort((a,b) => b[1]-a[1]).slice(0, 8);
     const naicsColors = ['rgba(99,102,241,0.65)','rgba(6,182,212,0.65)','rgba(16,185,129,0.65)','rgba(245,158,11,0.65)','rgba(167,139,250,0.65)','rgba(244,63,94,0.65)','rgba(251,191,36,0.65)','rgba(52,211,153,0.65)'];
     const naicsBorders = ['#6366f1','#06b6d4','#10b981','#f59e0b','#a78bfa','#f43f5e','#fbbf24','#34d399'];
+    const naicsFullNames = nS.map(n => n[0]);
     chartNaics = new Chart(document.getElementById("chartNaics"), {
         type: "bar",
         data: { labels: nS.map(n => n[0].length > 22 ? n[0].substring(0,22)+"..." : n[0]),
-            datasets: [{ label: "Contracts", data: nS.map(n => n[1]), backgroundColor: naicsColors, borderColor: naicsBorders, borderWidth: 1, borderRadius: 5 }] },
+            datasets: [{ label: "Contracts", data: nS.map(n => n[1]), backgroundColor: naicsColors, borderColor: naicsBorders, borderWidth: 1, borderRadius: 5,
+                hoverBackgroundColor: naicsColors.map(c => c.replace('0.65','0.9')) }] },
         options: { responsive: true, indexAxis: "y",
-            plugins: { legend: { display: false } },
+            onClick: (e, els) => {
+                if (!els.length) return;
+                const catName = naicsFullNames[els[0].index];
+                setFilter("naicsFilter", catName);
+            },
+            plugins: { legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x} contracts — click to filter` } } },
             scales: { x: { grid: { color: 'rgba(99,102,241,0.06)' }, ticks: { color: '#94a3b8' } }, y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } } } }
     });
 }
@@ -1580,10 +1729,10 @@ function renderCharts() {
 // DRILL-DOWN
 // ============================================================
 
-function showDrilldown(diff) {
-    const f = allContracts.filter(c => c.difficulty === diff);
+function showDrilldown(title, contractList) {
+    const f = contractList || [];
     const tv = f.reduce((s,c) => s+c.value, 0), tr = f.reduce((s,c) => s+c.recBid, 0);
-    document.getElementById("drilldownTitle").textContent = `${diff} Undercut Contracts (${f.length})`;
+    document.getElementById("drilldownTitle").textContent = `${title} (${f.length} contracts)`;
     document.getElementById("drilldownSub").textContent = `Total award: ${fmt(tv)} | At rec. bids: ${fmt(tr)} | Govt savings: ${fmt(tv-tr)}`;
     document.getElementById("drilldownBody").innerHTML = f.map(c => {
         const idx = allContracts.indexOf(c);
@@ -1801,6 +1950,168 @@ function exportAnalysis() {
 // ============================================================
 // INIT — Load demo data with NAICS baseline, then auto-fetch live pricing
 // ============================================================
+
+// ============================================================
+// AGENCY TREEMAP
+// ============================================================
+
+function renderAgencyTreemap() {
+    const container = document.getElementById("agencyTreemap");
+    if (!container) return;
+
+    // Aggregate data
+    const agData = {};
+    allContracts.forEach(c => {
+        if (!agData[c.agency]) agData[c.agency] = { value: 0, count: 0, easy: 0, medium: 0, hard: 0 };
+        agData[c.agency].value += c.value;
+        agData[c.agency].count++;
+        agData[c.agency][c.difficulty.toLowerCase()]++;
+    });
+
+    const entries = Object.entries(agData).sort((a, b) => b[1].value - a[1].value);
+    const totalValue = entries.reduce((s, e) => s + e[1].value, 0);
+    const maxCount = Math.max(...entries.map(e => e[1].count));
+
+    // Color palette
+    const palette = [
+        [99,102,241], [6,182,212], [16,185,129], [245,158,11],
+        [167,139,250], [244,63,94], [251,191,36], [52,211,153],
+        [129,140,248], [34,211,238], [251,113,133], [163,230,53],
+        [96,165,250], [232,121,249], [248,113,113], [74,222,128],
+        [253,186,116], [103,232,249], [196,181,253], [252,165,165]
+    ];
+
+    // Squarified treemap layout
+    const rects = squarify(entries.map((e, i) => ({ name: e[0], ...e[1], idx: i })), container.clientWidth, container.clientHeight || 300);
+
+    // Tooltip
+    let tooltip = document.getElementById("treemapTooltip");
+    if (!tooltip) {
+        tooltip = document.createElement("div");
+        tooltip.id = "treemapTooltip";
+        tooltip.className = "treemap-tooltip";
+        document.body.appendChild(tooltip);
+    }
+
+    // Render cells
+    container.innerHTML = "";
+    container.style.height = "300px";
+    container.style.position = "relative";
+
+    rects.forEach((r, i) => {
+        const d = r.data;
+        const col = palette[d.idx % palette.length];
+        const intensity = 0.5 + 0.4 * (d.count / maxCount);
+        const bg = `rgba(${col[0]},${col[1]},${col[2]},${intensity})`;
+        const glow = `rgba(${col[0]},${col[1]},${col[2]},0.3)`;
+
+        const cell = document.createElement("div");
+        cell.className = "treemap-cell";
+        cell.style.left = r.x + "px";
+        cell.style.top = r.y + "px";
+        cell.style.width = r.w + "px";
+        cell.style.height = r.h + "px";
+        cell.style.background = `linear-gradient(135deg, ${bg}, rgba(${col[0]*0.7|0},${col[1]*0.7|0},${col[2]*0.7|0},${intensity}))`;
+        cell.style.borderRadius = "4px";
+
+        // Content based on cell size
+        if (r.w > 70 && r.h > 45) {
+            cell.innerHTML = `<div class="tm-name">${esc(d.name)}</div><div class="tm-value">${fmt(d.value)}</div>${r.h > 60 ? `<div class="tm-count">${d.count} contracts</div>` : ''}`;
+        } else if (r.w > 40 && r.h > 25) {
+            const short = d.name.length > 12 ? d.name.substring(0, 10) + ".." : d.name;
+            cell.innerHTML = `<div class="tm-name" style="font-size:0.6rem">${esc(short)}</div>`;
+        }
+
+        // Hover tooltip
+        cell.addEventListener("mouseenter", (ev) => {
+            const pct = ((d.value / totalValue) * 100).toFixed(1);
+            tooltip.innerHTML = `
+                <div class="tt-name">${esc(d.name)}</div>
+                <div class="tt-row"><span class="tt-label">Total Value</span><span class="tt-val">${fmt(d.value)}</span></div>
+                <div class="tt-row"><span class="tt-label">Contracts</span><span class="tt-val">${d.count.toLocaleString()}</span></div>
+                <div class="tt-row"><span class="tt-label">Share</span><span class="tt-val">${pct}%</span></div>
+                <div class="tt-row"><span class="tt-label">Easy / Med / Hard</span><span class="tt-val">${d.easy} / ${d.medium} / ${d.hard}</span></div>
+                <div style="font-size:0.68rem;color:var(--text3);margin-top:0.4rem;">Click to filter by this agency</div>
+            `;
+            tooltip.style.display = "block";
+        });
+        cell.addEventListener("mousemove", (ev) => {
+            tooltip.style.left = (ev.clientX + 15) + "px";
+            tooltip.style.top = (ev.clientY - 10) + "px";
+        });
+        cell.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
+
+        // Click to filter
+        cell.addEventListener("click", () => {
+            setFilter("searchAgency", d.name);
+            tooltip.style.display = "none";
+        });
+
+        container.appendChild(cell);
+    });
+}
+
+// Squarified treemap algorithm
+function squarify(data, W, H) {
+    const total = data.reduce((s, d) => s + d.value, 0);
+    const rects = [];
+    let items = data.map(d => ({ ...d, area: (d.value / total) * W * H }));
+
+    function layoutRow(row, x, y, w, h, vertical) {
+        const rowArea = row.reduce((s, r) => s + r.area, 0);
+        let offset = 0;
+        row.forEach(r => {
+            const ratio = r.area / rowArea;
+            if (vertical) {
+                const cellH = h * ratio;
+                rects.push({ x, y: y + offset, w: rowArea / h, h: cellH, data: r });
+                offset += cellH;
+            } else {
+                const cellW = w * ratio;
+                rects.push({ x: x + offset, y, w: cellW, h: rowArea / w, data: r });
+                offset += cellW;
+            }
+        });
+        if (vertical) return { x: x + rowArea / h, y, w: w - rowArea / h, h };
+        return { x, y: y + rowArea / w, w, h: h - rowArea / w };
+    }
+
+    function worst(row, sideLen) {
+        const s = row.reduce((a, r) => a + r.area, 0);
+        const maxA = Math.max(...row.map(r => r.area));
+        const minA = Math.min(...row.map(r => r.area));
+        return Math.max((sideLen * sideLen * maxA) / (s * s), (s * s) / (sideLen * sideLen * minA));
+    }
+
+    function doLayout(items, x, y, w, h) {
+        if (items.length === 0) return;
+        if (items.length === 1) {
+            rects.push({ x, y, w, h, data: items[0] });
+            return;
+        }
+
+        const vertical = h > w;
+        const sideLen = vertical ? h : w;
+        let row = [items[0]];
+        let remaining = items.slice(1);
+
+        while (remaining.length > 0) {
+            const candidate = [...row, remaining[0]];
+            if (worst(candidate, sideLen) <= worst(row, sideLen)) {
+                row.push(remaining[0]);
+                remaining = remaining.slice(1);
+            } else {
+                break;
+            }
+        }
+
+        const rem = layoutRow(row, x, y, w, h, vertical);
+        doLayout(remaining, rem.x, rem.y, rem.w, rem.h);
+    }
+
+    doLayout(items, 0, 0, W, H);
+    return rects;
+}
 
 // ============================================================
 // ANIMATED VALUE COUNTER
