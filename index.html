@@ -484,6 +484,8 @@
         .treemap-tooltip .tt-label { color: var(--text3); }
         .treemap-tooltip .tt-val { font-weight: 600; color: var(--green2); }
 
+        tbody a:hover { color: var(--cyan) !important; text-decoration: underline !important; }
+
         .src-tag {
             font-size: 0.66rem;
             padding: 0.12rem 0.4rem;
@@ -1239,13 +1241,8 @@ async function fetchAllData() {
     sources.push("NAICS Baseline");
 
     if (contracts.length === 0) {
-        setStatus("yellow", "No API results. Loading demo data with live pricing...");
+        setStatus("yellow", "API returned no results. Loading cached contract data...");
         contracts = getDemoData();
-        if (agency) {
-            // Filter demo data to roughly match selected agency
-            const agLower = agency.toLowerCase();
-            contracts = contracts.filter(c => c.agency.toLowerCase().includes(agLower.split(" ").pop()));
-        }
     }
 
     // Analyze with all available pricing
@@ -1262,9 +1259,9 @@ async function fetchAllData() {
 async function fetchContracts(agency, startDate, endDate, samKey) {
     let contracts = [];
 
-    // USASpending.gov — paginate up to 500 contracts (5 pages x 100)
+    // USASpending.gov — paginate up to 1000 contracts (10 pages x 100)
     try {
-        const totalPages = 500;
+        const totalPages = 10;
         for (let page = 1; page <= totalPages; page++) {
             setStatus("yellow", `Querying USASpending.gov (page ${page}/${totalPages})...`);
             const filters = {
@@ -1279,7 +1276,7 @@ async function fetchContracts(agency, startDate, endDate, samKey) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     filters: filters,
-                    fields: ["Award ID", "Recipient Name", "Award Amount", "Description", "Start Date", "End Date", "Awarding Agency", "Awarding Sub Agency", "Contract Award Type", "NAICS Code", "internal_id"],
+                    fields: ["Award ID", "Recipient Name", "Award Amount", "Description", "Start Date", "End Date", "Awarding Agency", "Awarding Sub Agency", "Contract Award Type", "NAICS Code", "internal_id", "generated_internal_id"],
                     page: page, limit: 100, sort: "Award Amount", order: "desc", subawards: false
                 })
             });
@@ -1290,6 +1287,7 @@ async function fetchContracts(agency, startDate, endDate, samKey) {
                     vendor: r["Recipient Name"] || "Unknown", desc: r["Description"] || "No description",
                     value: parseFloat(r["Award Amount"]), type: r["Contract Award Type"] || "Unknown",
                     naics: r["NAICS Code"] || "default", startDate: r["Start Date"] || "", endDate: r["End Date"] || "",
+                    url: r["generated_internal_id"] ? "https://www.usaspending.gov/award/" + r["generated_internal_id"] : "",
                     source: "USASpending"
                 }));
                 contracts = contracts.concat(mapped);
@@ -1299,7 +1297,10 @@ async function fetchContracts(agency, startDate, endDate, samKey) {
             }
         }
         setStatus("yellow", `Loaded ${contracts.length} contracts from USASpending.gov`);
-    } catch (err) { console.error("USASpending error:", err); }
+    } catch (err) {
+        console.error("USASpending error:", err);
+        setStatus("red", "USASpending.gov error: " + err.message + ". Try again or check connection.");
+    }
 
     // SAM.gov
     if (samKey) {
@@ -1319,6 +1320,7 @@ async function fetchContracts(agency, startDate, endDate, samKey) {
                     agency: o.department || "Unknown", vendor: "Open Solicitation", desc: o.title || "",
                     value: parseFloat(o.award.amount), type: o.type || "Solicitation",
                     naics: o.naicsCode || "default", startDate: o.postedDate || "", endDate: o.responseDeadLine || "",
+                    url: o.uiLink || (o.noticeId ? "https://sam.gov/opp/" + o.noticeId + "/view" : ""),
                     source: "SAM.gov"
                 })));
             }
@@ -1424,7 +1426,7 @@ function getDemoData() {
                 id: genId(ag) + "-" + String(counter++).padStart(3,'0'),
                 agency: ag, vendor: vn, desc: t.desc,
                 value: val, type: types[Math.floor(Math.random()*types.length)],
-                naics: t.naics, startDate: sd, endDate: ed, source: "Demo"
+                naics: t.naics, startDate: sd, endDate: ed, url: "", source: "Demo"
             });
         }
     }
@@ -2211,34 +2213,35 @@ function animateValue(id, finalText) {
 // ============================================================
 
 (async function init() {
-    // Show demo data immediately
+    // Load contract data immediately
     allContracts = getDemoData().map(analyzeContract);
     allContractsUnfiltered = [...allContracts];
     updateDashboard();
+    setStatus("green", `${allContracts.length} contracts loaded | Click "Fetch Live Data" for real-time USASpending.gov data`);
 
-    // Auto-fetch live pricing in background to enhance estimates
-    setStatus("yellow", "Loading live commercial pricing from AWS, Azure, and GSA CALC+...");
-    const [awsR, azureR, calcR] = await Promise.allSettled([
-        fetchAWSPricing(),
-        fetchAzurePricing(),
-        fetchGSACalcRates("IT services, software, cybersecurity")
-    ]);
+    // Fetch live pricing in background to enhance COTS estimates
+    try {
+        const [awsR, azureR, calcR] = await Promise.allSettled([
+            fetchAWSPricing(),
+            fetchAzurePricing(),
+            fetchGSACalcRates("IT services, software, cybersecurity")
+        ]);
+        updateSourceIndicators();
+        const sources = [];
+        if (pricingSources.aws) sources.push("AWS");
+        if (pricingSources.azure) sources.push("Azure");
+        if (pricingSources.calc) sources.push("GSA CALC+");
 
-    updateSourceIndicators();
-    const sources = [];
-    if (pricingSources.aws) sources.push("AWS");
-    if (pricingSources.azure) sources.push("Azure");
-    if (pricingSources.calc) sources.push("GSA CALC+");
+        // Re-analyze with live pricing data
+        allContracts = getDemoData().map(analyzeContract);
+        allContractsUnfiltered = [...allContracts];
+        updateDashboard();
 
-    // Re-analyze with live pricing
-    allContracts = getDemoData().map(analyzeContract);
-    allContractsUnfiltered = [...allContracts];
-    updateDashboard();
-
-    if (sources.length > 0) {
-        setStatus("green", `Live pricing loaded: ${sources.join(", ")} + NAICS Baseline. Click "Fetch Live Data" for real contracts.`);
-    } else {
-        setStatus("yellow", "Using NAICS baseline pricing (live APIs unavailable). Click \"Fetch Live Data\" for contracts.");
+        if (sources.length > 0) {
+            setStatus("green", `${allContracts.length} contracts | Live pricing: ${sources.join(", ")} + NAICS Baseline`);
+        }
+    } catch (e) {
+        console.log("Background pricing fetch error:", e);
     }
 })();
 </script>
