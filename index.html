@@ -416,6 +416,15 @@
         .pct-over.mid { color: var(--amber); }
         .pct-over.low { color: var(--green); }
 
+        .renewal { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 20px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; }
+        .renewal.expired { background: rgba(244,63,94,0.2); color: #fb7185; border: 1px solid rgba(244,63,94,0.3); }
+        .renewal.imminent { background: rgba(244,63,94,0.15); color: #fb7185; border: 1px solid rgba(244,63,94,0.25); animation: pulse-renewal 1.5s infinite; }
+        .renewal.soon { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+        .renewal.upcoming { background: rgba(6,182,212,0.15); color: #22d3ee; border: 1px solid rgba(6,182,212,0.25); }
+        .renewal.active { background: rgba(16,185,129,0.1); color: var(--green2); border: 1px solid rgba(16,185,129,0.15); }
+        .renewal.unknown { background: rgba(100,116,139,0.1); color: var(--text3); border: 1px solid rgba(100,116,139,0.15); }
+        @keyframes pulse-renewal { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
         .src-tag {
             font-size: 0.66rem;
             padding: 0.12rem 0.4rem;
@@ -591,11 +600,13 @@
                 </select>
             </div>
             <div class="fg">
-                <label>Date Range</label>
-                <select id="dateRange">
-                    <option value="90">Last 90 Days</option>
-                    <option value="180">Last 180 Days</option>
-                    <option value="365" selected>Last Year</option>
+                <label>Upcoming Renewal</label>
+                <select id="renewalFilter" onchange="filterByRenewal()">
+                    <option value="all">All Contracts</option>
+                    <option value="imminent">Imminent (0-90 days)</option>
+                    <option value="soon">Soon (91-180 days)</option>
+                    <option value="upcoming">Upcoming (181-365 days)</option>
+                    <option value="active">Active (1+ year)</option>
                 </select>
             </div>
             <button class="btn btn-green" onclick="fetchAllData()" id="fetchBtn">Fetch Live Data</button>
@@ -645,7 +656,7 @@
         <h3 id="drilldownTitle"></h3>
         <div id="drilldownSub" style="margin-bottom:0.75rem;font-size:0.8rem;color:#666;"></div>
         <table>
-            <thead><tr><th>Contract ID</th><th>Agency</th><th>Description</th><th>Award</th><th>COTS Est.</th><th>Source</th><th>% Over</th><th>Rec. Bid</th><th>Margin</th><th>Proposal</th></tr></thead>
+            <thead><tr><th>Contract ID</th><th>Agency</th><th>Description</th><th>Award</th><th>COTS Est.</th><th>Source</th><th>% Over</th><th>Rec. Bid</th><th>Margin</th><th>Renewal</th><th>Proposal</th></tr></thead>
             <tbody id="drilldownBody"></tbody>
         </table>
     </div>
@@ -677,6 +688,7 @@
                 <th onclick="sortTable(6)">Difficulty</th>
                 <th onclick="sortTable(7)">Rec. Bid</th>
                 <th onclick="sortTable(8)">Margin</th>
+                <th onclick="sortTable(9)">Renewal</th>
                 <th>Proposal</th>
             </tr></thead>
             <tbody id="contractsBody"></tbody>
@@ -1112,7 +1124,21 @@ function analyzeContract(c) {
 
     const yourMargin = ((recBid - cotsEstimate) / recBid) * 100;
 
-    return { ...c, cotsEstimate, pctOver, difficulty, recBid, yourMargin, priceSource: source, priceDetail: sourceDetail, priceConfidence: confidence };
+    // Renewal analysis
+    let renewalStatus = "Unknown";
+    let daysUntilRenewal = null;
+    if (c.endDate) {
+        const end = new Date(c.endDate);
+        const now = new Date();
+        daysUntilRenewal = Math.ceil((end - now) / 86400000);
+        if (daysUntilRenewal < 0) renewalStatus = "Expired";
+        else if (daysUntilRenewal <= 90) renewalStatus = "Imminent";
+        else if (daysUntilRenewal <= 180) renewalStatus = "Soon";
+        else if (daysUntilRenewal <= 365) renewalStatus = "Upcoming";
+        else renewalStatus = "Active";
+    }
+
+    return { ...c, cotsEstimate, pctOver, difficulty, recBid, yourMargin, priceSource: source, priceDetail: sourceDetail, priceConfidence: confidence, renewalStatus, daysUntilRenewal };
 }
 
 // ============================================================
@@ -1128,7 +1154,7 @@ async function fetchAllData() {
     updateSourceIndicators();
 
     const agency = document.getElementById("searchAgency").value;
-    const days = parseInt(document.getElementById("dateRange").value);
+    const days = 365;
     const samKey = document.getElementById("samApiKey").value.trim();
     const endDate = new Date().toISOString().split("T")[0];
     const startDate = new Date(Date.now() - days * 86400000).toISOString().split("T")[0];
@@ -1164,6 +1190,8 @@ async function fetchAllData() {
 
     // Analyze with all available pricing
     allContracts = contracts.map(analyzeContract);
+    allContractsUnfiltered = [...allContracts];
+    document.getElementById("renewalFilter").value = "all";
     updateDashboard();
 
     setStatus("green", `${allContracts.length} contracts analyzed | Pricing: ${sources.join(", ")}`);
@@ -1176,7 +1204,7 @@ async function fetchContracts(agency, startDate, endDate, samKey) {
 
     // USASpending.gov — paginate up to 500 contracts (5 pages x 100)
     try {
-        const totalPages = 50;
+        const totalPages = 500;
         for (let page = 1; page <= totalPages; page++) {
             setStatus("yellow", `Querying USASpending.gov (page ${page}/${totalPages})...`);
             const filters = {
@@ -1216,7 +1244,7 @@ async function fetchContracts(agency, startDate, endDate, samKey) {
     // SAM.gov
     if (samKey) {
         try {
-            const days = parseInt(document.getElementById("dateRange").value);
+            const days = 365;
             const s = new Date(Date.now() - days * 86400000);
             const e = new Date();
             const from = `${String(s.getMonth()+1).padStart(2,'0')}/${String(s.getDate()).padStart(2,'0')}/${s.getFullYear()}`;
@@ -1328,18 +1356,22 @@ function getDemoData() {
             const vn = vendors[Math.floor(Math.random() * vendors.length)];
             const val = (5 + Math.floor(Math.random() * 495)) * 1e5; // $500K - $49.5M
             const sd = randDate();
+            // Generate end date 1-5 years after start
+            const sdObj = new Date(sd);
+            const edObj = new Date(sdObj.getFullYear() + 1 + Math.floor(Math.random() * 4), sdObj.getMonth(), sdObj.getDate());
+            const ed = edObj.toISOString().split("T")[0];
             contracts.push({
                 id: genId(ag) + "-" + String(counter++).padStart(3,'0'),
                 agency: ag, vendor: vn, desc: t.desc,
                 value: val, type: types[Math.floor(Math.random()*types.length)],
-                naics: t.naics, startDate: sd, endDate: "", source: "Demo"
+                naics: t.naics, startDate: sd, endDate: ed, source: "Demo"
             });
         }
     }
 
-    gen(easyTemplates, 900);
-    gen(mediumTemplates, 2000);
-    gen(hardTemplates, 2100);
+    gen(easyTemplates, 9000);
+    gen(mediumTemplates, 20000);
+    gen(hardTemplates, 21000);
 
     return contracts;
 }
@@ -1432,13 +1464,41 @@ function renderTable(data) {
         <td><span class="badge ${c.difficulty.toLowerCase()}">${c.difficulty}</span></td>
         <td>${fmt(c.recBid)}</td>
         <td><strong>${c.yourMargin.toFixed(1)}%</strong></td>
+        <td><span class="renewal ${c.renewalStatus.toLowerCase()}" title="${c.daysUntilRenewal !== null ? c.daysUntilRenewal + ' days' : 'No end date'}">${c.renewalStatus}${c.daysUntilRenewal !== null && c.daysUntilRenewal >= 0 ? ' (' + c.daysUntilRenewal + 'd)' : ''}</span></td>
         <td><button class="btn btn-sm btn-green" onclick="generateProposal(${i})">CMMC Proposal</button></td>
     </tr>`).join("");
 }
 
+let allContractsUnfiltered = [];
+
+function filterByRenewal() {
+    const val = document.getElementById("renewalFilter").value;
+    if (val === "all") {
+        allContracts = [...allContractsUnfiltered];
+    } else {
+        allContracts = allContractsUnfiltered.filter(c => c.renewalStatus.toLowerCase() === val);
+    }
+    renderTable(allContracts);
+    renderCharts();
+    // Update stats for filtered view
+    const n = allContracts.length;
+    const obl = allContracts.reduce((s, c) => s + c.value, 0);
+    const avgO = n > 0 ? allContracts.reduce((s, c) => s + c.pctOver, 0) / n : 0;
+    const easy = allContracts.filter(c => c.difficulty === "Easy").length;
+    const rev = allContracts.reduce((s, c) => s + c.recBid, 0);
+    animateValue("statTotal", n.toLocaleString());
+    animateValue("statObligated", fmt(obl));
+    animateValue("statAvgOver", avgO.toFixed(1) + "%");
+    animateValue("statEasy", easy.toString());
+    animateValue("statRevenue", fmt(rev));
+    document.getElementById("hsContracts").textContent = n.toLocaleString();
+    document.getElementById("hsValue").textContent = fmt(obl);
+    document.getElementById("hsOpps").textContent = easy.toString();
+}
+
 function sortTable(col) {
     if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
-    const keys = ["id","agency","desc","value","cotsEstimate","pctOver","difficulty","recBid","yourMargin"];
+    const keys = ["id","agency","desc","value","cotsEstimate","pctOver","difficulty","recBid","yourMargin","daysUntilRenewal"];
     const k = keys[col]; if (!k) return;
     allContracts.sort((a, b) => { let va = a[k], vb = b[k]; if (typeof va === "string") { va = va.toLowerCase(); vb = (vb||"").toLowerCase(); } return va < vb ? (sortAsc?-1:1) : va > vb ? (sortAsc?1:-1) : 0; });
     renderTable(allContracts);
@@ -1534,6 +1594,7 @@ function showDrilldown(diff) {
             <td><span class="src-tag">${esc(c.priceSource)}</span></td>
             <td><span class="pct-over ${pctCls(c.pctOver)}">${c.pctOver.toFixed(1)}%</span></td>
             <td><strong>${fmt(c.recBid)}</strong></td><td><strong>${c.yourMargin.toFixed(1)}%</strong></td>
+            <td><span class="renewal ${c.renewalStatus.toLowerCase()}">${c.renewalStatus}${c.daysUntilRenewal !== null && c.daysUntilRenewal >= 0 ? ' (' + c.daysUntilRenewal + 'd)' : ''}</span></td>
             <td><button class="btn btn-sm btn-green" onclick="generateProposal(${idx})">CMMC Proposal</button></td>
         </tr>`;
     }).join("");
@@ -1841,6 +1902,7 @@ function animateValue(id, finalText) {
 (async function init() {
     // Show demo data immediately
     allContracts = getDemoData().map(analyzeContract);
+    allContractsUnfiltered = [...allContracts];
     updateDashboard();
 
     // Auto-fetch live pricing in background to enhance estimates
@@ -1859,6 +1921,7 @@ function animateValue(id, finalText) {
 
     // Re-analyze with live pricing
     allContracts = getDemoData().map(analyzeContract);
+    allContractsUnfiltered = [...allContracts];
     updateDashboard();
 
     if (sources.length > 0) {
