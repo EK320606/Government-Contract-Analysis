@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Insider Cluster Buy Scanner · LIVE</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050816;
+    --bg2: #0a0f1e;
+    --surface: rgba(12, 17, 35, 0.75);
+    --surface2: rgba(20, 28, 50, 0.6);
+    --border: rgba(99, 102, 241, 0.18);
+    --border2: rgba(99, 102, 241, 0.08);
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #10b981;
+    --green2: #34d399;
+    --red: #f43f5e;
+    --amber: #f59e0b;
+    --cyan: #06b6d4;
+    --purple: #a78bfa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  body::before, body::after {
+    content: '';
+    position: fixed;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 50%;
+    filter: blur(80px);
+  }
+  body::before {
+    width: 600px; height: 600px;
+    top: -200px; left: -200px;
+    background: radial-gradient(circle, rgba(99,102,241,0.15), transparent 60%);
+  }
+  body::after {
+    width: 700px; height: 700px;
+    bottom: -300px; right: -200px;
+    background: radial-gradient(circle, rgba(167,139,250,0.12), transparent 60%);
+  }
+  .shell { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; padding: 32px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border: 1px solid var(--border); border-radius: 16px;
+    background: var(--surface); backdrop-filter: blur(20px); margin-bottom: 24px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green2);
+    box-shadow: 0 0 12px var(--green2); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .header-actions { display: flex; align-items: center; gap: 8px; }
+  .pill {
+    padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    color: var(--text2); background: var(--surface2); border: 1px solid var(--border2);
+  }
+  .pill.live { color: var(--green2); border-color: rgba(16,185,129,0.3); }
+  .pill.delayed { color: var(--amber); border-color: rgba(245,158,11,0.3); }
+  .pill button { all: unset; cursor: pointer; }
+  .title { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
+  .subtitle { color: var(--text2); font-size: 14px; margin-bottom: 28px; }
+  .grid { display: grid; gap: 20px; }
+  .pipeline {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .step {
+    border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+    background: var(--surface); backdrop-filter: blur(20px);
+    position: relative; transition: border-color .2s, transform .2s;
+  }
+  .step:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .step .num {
+    position: absolute; top: -10px; left: 16px; padding: 2px 8px;
+    background: var(--accent); color: white; font-size: 11px; font-weight: 700;
+    border-radius: 6px;
+  }
+  .step h3 { font-size: 14px; font-weight: 600; margin: 4px 0 8px; }
+  .step pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px; color: var(--text2); background: var(--bg2);
+    padding: 10px; border-radius: 8px; overflow-x: auto; line-height: 1.5;
+    border: 1px solid var(--border2);
+  }
+  .step .meta {
+    margin-top: 8px; font-size: 11px; color: var(--text3);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .step .meta .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green2); }
+  .results {
+    margin-top: 24px; border: 1px solid var(--border); border-radius: 16px;
+    background: var(--surface); backdrop-filter: blur(20px); padding: 24px;
+  }
+  .results h2 {
+    font-size: 12px; font-weight: 700; color: var(--accent2);
+    text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px;
+  }
+  .result-row {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 16px; align-items: center; padding: 14px 0;
+    border-bottom: 1px solid var(--border2);
+  }
+  .result-row:last-child { border-bottom: none; }
+  .badge {
+    padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 700;
+    background: rgba(16,185,129,0.12); color: var(--green2);
+    border: 1px solid rgba(16,185,129,0.3);
+  }
+  .ticker { font-weight: 700; font-size: 16px; }
+  .issuer { color: var(--text2); font-size: 12px; margin-top: 2px; }
+  .stats { text-align: right; font-size: 13px; color: var(--text2); }
+  .stats strong { color: var(--text); display: block; font-size: 14px; }
+  .what {
+    margin-top: 20px; padding: 16px; background: var(--bg2);
+    border: 1px solid var(--border2); border-radius: 12px;
+    font-size: 13px; color: var(--text2); line-height: 1.6;
+  }
+  .what h3 {
+    font-size: 11px; color: var(--accent2); text-transform: uppercase;
+    letter-spacing: 1.5px; margin-bottom: 8px; font-weight: 700;
+  }
+  .what ol { margin-left: 18px; margin-top: 6px; }
+  .what li { margin-bottom: 4px; }
+  .empty { color: var(--text3); padding: 24px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="brand"><span class="dot"></span> Xynth · Insider Cluster Buy Scanner</div>
+    <div class="header-actions">
+      <span class="pill">Every weekday at 7:00 AM ET</span>
+      <span class="pill delayed">DELAYED 15m</span>
+      <span class="pill live">LIVE</span>
+      <span class="pill"><button>Subscribe</button></span>
+    </div>
+  </header>
+
+  <div class="title">Insider Cluster Buy Scanner</div>
+  <div class="subtitle">Showing: 8h ago · 6 STEPS LIVE</div>
+
+  <div class="grid pipeline">
+    <div class="step">
+      <span class="num">STEP 1</span>
+      <h3>Filter for open-market purchases</h3>
+<pre># SEC Form 4, transactionCode == "P"
+# Excludes options, gifts, 10b5-1
+trades = [t for t in form4
+          if t.code == "P"]</pre>
+      <div class="meta"><span class="dot"></span> computation step</div>
+    </div>
+
+    <div class="step">
+      <span class="num">STEP 2</span>
+      <h3>Filter for C-suite insiders &amp; 10%+ owners</h3>
+<pre># Officer or Director only
+qualifying = [t for t in trades
+  if t.is_officer or t.is_director]</pre>
+      <div class="meta"><span class="dot"></span> computation step</div>
+    </div>
+
+    <div class="step">
+      <span class="num">STEP 3</span>
+      <h3>Filter for market cap under $500M</h3>
+<pre># Small-cap signal is strongest
+small_caps = [t for t in qualifying
+              if mcap(t.ticker) &lt; 500_000_000]</pre>
+      <div class="meta"><span class="dot"></span> computation step</div>
+    </div>
+
+    <div class="step">
+      <span class="num">STEP 4</span>
+      <h3>Filter for 10% increase in position</h3>
+<pre># Skip token buys
+sized = [t for t in small_caps
+         if t.shares / t.prior &gt;= 0.10]</pre>
+      <div class="meta"><span class="dot"></span> computation step</div>
+    </div>
+
+    <div class="step">
+      <span class="num">STEP 5</span>
+      <h3>Find clusters: 2+ insiders within 5 days</h3>
+<pre>clusters = find_clusters(sized,
+  window_days=5, min_insiders=2)</pre>
+      <div class="meta"><span class="dot"></span> computation step</div>
+    </div>
+
+    <div class="step">
+      <span class="num">STEP 6</span>
+      <h3>Email top 3 trades + set trailing stop 15%</h3>
+<pre>send_email(rank(clusters)[:3])
+# trailing stop suggested: 15%</pre>
+      <div class="meta"><span class="dot"></span> computation step</div>
+    </div>
+  </div>
+
+  <div class="results">
+    <h2>★ DASHBOARD PREVIEW · Final Results</h2>
+    <div id="results-list">
+      <div class="empty">Load <code>output.json</code> from <code>scanner</code> to populate results.</div>
+    </div>
+    <div class="what">
+      <h3>What this means</h3>
+      <p>Each row above passed all five filters: a non-routine, high-conviction
+      C-suite cluster buy at a sub-$500M market-cap company.</p>
+      <h3 style="margin-top:14px;">What to do next</h3>
+      <ol>
+        <li>Buy at the listed average insider entry price.</li>
+        <li>Set initial hard stop $0.03 below the lowest insider fill.</li>
+        <li>Set a 15% trailing stop on both positions to protect upside.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Renders results from a sibling output.json if present.
+  // Format matches scanner/pipeline.py::_serialize.
+  fetch('output.json').then(r => r.ok ? r.json() : []).then(rows => {
+    if (!rows || !rows.length) return;
+    const fmt = n => n >= 1e6 ? `$${(n/1e6).toFixed(2)}M`
+                : n >= 1e3 ? `$${(n/1e3).toFixed(0)}K` : `$${n.toFixed(0)}`;
+    document.getElementById('results-list').innerHTML = rows.slice(0, 5).map((c, i) => `
+      <div class="result-row">
+        <span class="badge">LONG ${c.ticker}</span>
+        <div>
+          <div class="ticker">${c.ticker}</div>
+          <div class="issuer">${c.issuer_name} · entry $${c.avg_price.toFixed(2)}</div>
+        </div>
+        <div class="stats">
+          <strong>${fmt(c.total_value)} insider buy</strong>
+          ${c.insider_count} insiders
+        </div>
+      </div>
+    `).join('');
+  }).catch(() => {});
+</script>
+</body>
+</html>
